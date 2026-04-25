@@ -1,5 +1,23 @@
 const MIN_SUPPORTED_YEAR = 1900;
 const MAX_SUPPORTED_YEAR = 2100;
+const MAX_DECIMAL_INTEGER_DIGITS = 16;
+
+function isDateLikeString(value: string) {
+  const normalized = value.trim();
+  return (
+    /^\d{1,2}[./-]\d{1,2}[./-]\d{2,4}$/.test(normalized) ||
+    /^\d{4}[./-]\d{1,2}[./-]\d{1,2}$/.test(normalized)
+  );
+}
+
+function fitsPrismaDecimalRange(value: number) {
+  if (!Number.isFinite(value)) {
+    return false;
+  }
+
+  const integerPart = Math.abs(value).toFixed(4).split(".")[0] ?? "";
+  return integerPart.length <= MAX_DECIMAL_INTEGER_DIGITS;
+}
 
 function isSupportedDate(date: Date) {
   if (Number.isNaN(date.getTime())) {
@@ -12,17 +30,25 @@ function isSupportedDate(date: Date) {
 
 export function toNumberOrNull(value: unknown) {
   if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
+    return fitsPrismaDecimalRange(value) ? value : null;
   }
 
   if (typeof value === "string") {
-    const normalized = value.replace(/[^0-9.\-]/g, "");
-    if (!normalized) {
+    const trimmed = value.trim();
+    if (!trimmed || isDateLikeString(trimmed)) {
+      return null;
+    }
+
+    const normalized = trimmed
+      .replace(/[$€£¥₽₩₺₴₸₼₦₱₹₫₭₮₲₡₵₨%\s]/g, "")
+      .replace(/,/g, "");
+
+    if (!/^-?\d+(\.\d+)?$/.test(normalized)) {
       return null;
     }
 
     const parsed = Number(normalized);
-    return Number.isFinite(parsed) ? parsed : null;
+    return fitsPrismaDecimalRange(parsed) ? parsed : null;
   }
 
   return null;

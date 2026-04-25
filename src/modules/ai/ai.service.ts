@@ -90,7 +90,7 @@ class AiService {
         uploadId,
         status: AiAnalysisStatus.RUNNING,
         modelName: env.VERTEX_AI_MODEL,
-        promptVersion: "v1",
+        promptVersion: "v2-text",
         inputSummary: toJsonValue(inputSummary),
         startedAt: new Date(),
       },

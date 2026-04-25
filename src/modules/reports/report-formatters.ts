@@ -168,7 +168,7 @@ export function normalizeSummary(text: unknown) {
 
   return normalized
     .split(/\n{2,}/)
-    .map((item) => item.replace(/\s+/g, " ").trim())
+    .map((item) => item.replace(/\*\*(.*?)\*\*/g, "$1").replace(/\s+/g, " ").trim())
     .filter(Boolean);
 }
 

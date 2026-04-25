@@ -6,9 +6,11 @@ import aiService from "./ai.service.js";
 
 class AiController {
   run = asyncHandler(async (req: Request, res: Response) => {
-    // Increase timeout for AI analysis (10 minutes)
-    res.setTimeout(10 * 60 * 1000);
-    
+    // Disable request/response timeout for long-running AI analysis.
+    req.setTimeout(0);
+    res.setTimeout(0);
+    req.socket.setTimeout(0);
+
     const userId = req.user?.id;
     if (!userId) {
       throw ApiError.unauthorized();
