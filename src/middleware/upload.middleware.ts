@@ -3,6 +3,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import multer from "multer";
 import mime from "mime-types";
+import type { Request } from "express";
 import { env } from "../config/env.js";
 import { ApiError } from "../utils/api-error.js";
 
@@ -21,8 +22,16 @@ if (!fs.existsSync(uploadsDir)) {
 }
 
 const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadsDir),
-  filename: (_req, file, cb) => {
+  destination: (
+    _req: Request,
+    _file: Express.Multer.File,
+    cb: (error: Error | null, destination: string) => void,
+  ) => cb(null, uploadsDir),
+  filename: (
+    _req: Request,
+    file: Express.Multer.File,
+    cb: (error: Error | null, filename: string) => void,
+  ) => {
     const extension = path.extname(file.originalname).toLowerCase();
     cb(null, `${randomUUID()}${extension}`);
   },
@@ -33,7 +42,11 @@ export const uploadSingleFile = multer({
   limits: {
     fileSize: env.UPLOAD_MAX_SIZE_MB * 1024 * 1024,
   },
-  fileFilter: (_req, file, cb) => {
+  fileFilter: (
+    _req: Request,
+    file: Express.Multer.File,
+    cb: multer.FileFilterCallback,
+  ) => {
     const extension = path.extname(file.originalname).toLowerCase();
     const detectedMime = file.mimetype || mime.lookup(extension) || "";
 

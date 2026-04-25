@@ -1,4 +1,4 @@
-import express from "express";
+import express, { type Request, type Response } from "express";
 import path from "node:path";
 import cors from "cors";
 import helmet from "helmet";
@@ -25,7 +25,7 @@ app.use(rateLimit({
 
 app.use(
   cors({
-    origin(origin, callback) {
+    origin(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
       if (!origin || env.corsOrigins.length === 0 || env.corsOrigins.includes(origin)) {
         callback(null, true);
         return;
@@ -40,7 +40,7 @@ app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
 
-app.get("/health", (_req, res) => {
+app.get("/health", (_req: Request, res: Response) => {
   res.status(200).json({ status: "ok" });
 });
 
