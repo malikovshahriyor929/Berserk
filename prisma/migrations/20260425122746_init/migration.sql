@@ -26,10 +26,34 @@ CREATE TABLE "User" (
     "passwordHash" TEXT,
     "name" TEXT NOT NULL,
     "role" "UserRole" NOT NULL DEFAULT 'USER',
+    "balanceCents" INTEGER NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "saveCount" INTEGER NOT NULL DEFAULT 0,
+    "avatar" TEXT NOT NULL DEFAULT '',
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Save" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "bookId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Save_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Token" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "token" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Token_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -53,6 +77,7 @@ CREATE TABLE "Book" (
     "description" TEXT,
     "coverUrl" TEXT,
     "language" TEXT,
+    "category" TEXT,
     "status" "BookStatus" NOT NULL DEFAULT 'DRAFT',
     "visibility" "BookVisibility" NOT NULL DEFAULT 'PUBLIC',
     "monetization" "Monetization" NOT NULL DEFAULT 'FREE',
@@ -164,10 +189,25 @@ CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 CREATE INDEX "User_role_idx" ON "User"("role");
 
 -- CreateIndex
+CREATE INDEX "Save_bookId_idx" ON "Save"("bookId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Save_userId_bookId_key" ON "Save"("userId", "bookId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Token_userId_key" ON "Token"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Token_token_key" ON "Token"("token");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "AuthorProfile_userId_key" ON "AuthorProfile"("userId");
 
 -- CreateIndex
 CREATE INDEX "Book_authorId_idx" ON "Book"("authorId");
+
+-- CreateIndex
+CREATE INDEX "Book_category_idx" ON "Book"("category");
 
 -- CreateIndex
 CREATE INDEX "Book_status_idx" ON "Book"("status");
@@ -230,6 +270,12 @@ CREATE INDEX "ReadingProgress_chapterId_idx" ON "ReadingProgress"("chapterId");
 CREATE UNIQUE INDEX "ReadingProgress_userId_chapterId_key" ON "ReadingProgress"("userId", "chapterId");
 
 -- AddForeignKey
+ALTER TABLE "Save" ADD CONSTRAINT "Save_bookId_fkey" FOREIGN KEY ("bookId") REFERENCES "Book"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Save" ADD CONSTRAINT "Save_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "AuthorProfile" ADD CONSTRAINT "AuthorProfile_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -251,13 +297,10 @@ ALTER TABLE "Review" ADD CONSTRAINT "Review_bookId_fkey" FOREIGN KEY ("bookId") 
 ALTER TABLE "Review" ADD CONSTRAINT "Review_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Order" ADD CONSTRAINT "Order_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "Order" ADD CONSTRAINT "Order_bookId_fkey" FOREIGN KEY ("bookId") REFERENCES "Book"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "BookAccess" ADD CONSTRAINT "BookAccess_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Order" ADD CONSTRAINT "Order_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "BookAccess" ADD CONSTRAINT "BookAccess_bookId_fkey" FOREIGN KEY ("bookId") REFERENCES "Book"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -266,7 +309,10 @@ ALTER TABLE "BookAccess" ADD CONSTRAINT "BookAccess_bookId_fkey" FOREIGN KEY ("b
 ALTER TABLE "BookAccess" ADD CONSTRAINT "BookAccess_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ReadingProgress" ADD CONSTRAINT "ReadingProgress_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "BookAccess" ADD CONSTRAINT "BookAccess_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ReadingProgress" ADD CONSTRAINT "ReadingProgress_chapterId_fkey" FOREIGN KEY ("chapterId") REFERENCES "Chapter"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ReadingProgress" ADD CONSTRAINT "ReadingProgress_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

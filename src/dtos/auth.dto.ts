@@ -1,11 +1,19 @@
-class userDto {
+class UserDto {
+  id?: string | undefined;
   email: string;
   name: string;
-  createdAt?: Date;
-  updatedAt?: Date;
-  role?: string;
-  id?: string;
-  constructor(model: any) {
+  role?: string | undefined;
+  createdAt?: Date | undefined;
+  updatedAt?: Date | undefined;
+
+  constructor(model: {
+    id?: string;
+    email: string;
+    name: string;
+    role?: string | undefined;
+    createdAt?: Date | undefined;
+    updatedAt?: Date | undefined;
+  }) {
     this.id = model.id;
     this.email = model.email;
     this.name = model.name;
@@ -15,4 +23,4 @@ class userDto {
   }
 }
 
-export default userDto;
+export default UserDto;

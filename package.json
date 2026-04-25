@@ -1,7 +1,7 @@
 {
   "name": "bookingbackend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Financial reporting backend MVP with Express, Prisma, PostgreSQL, Excel ETL, Vertex AI analysis, and PDF reports.",
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -17,20 +17,33 @@
     "start": "node dist/index.js",
     "render-build": "npm install && npm run build",
     "prisma:studio": "prisma studio",
-    "prisma:seed": "prisma db seed"
+    "prisma:seed": "prisma db seed",
+    "prisma:format": "prisma format",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev"
   },
   "dependencies": {
+    "@google-cloud/vertexai": "^1.12.0",
     "@prisma/adapter-pg": "^7.3.0",
     "@prisma/client": "^7.3.0",
     "bcrypt": "^6.0.0",
+    "chart.js": "^4.5.1",
+    "chartjs-node-canvas": "^5.0.0",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.4.1",
+    "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
+    "mime-types": "^3.0.2",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.12",
+    "pdfkit": "^0.18.0",
     "pg": "^8.17.2",
-    "uuid": "^13.0.0"
+    "puppeteer": "^24.42.0",
+    "uuid": "^13.0.0",
+    "xlsx": "^0.18.5",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@faker-js/faker": "^10.2.0",
@@ -38,9 +51,11 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/mime-types": "^3.0.1",
     "@types/multer": "^2.0.0",
     "@types/node": "^25.5.0",
     "@types/nodemailer": "^7.0.5",
+    "@types/pdfkit": "^0.17.6",
     "prisma": "^7.3.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"

@@ -1,276 +1,298 @@
-// // This is your Prisma schema file,
-// // learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// generator client {
-//   provider = "prisma-client"
-//   output   = "../src/generated/prisma"
-// }
-
-// datasource db {
-//   provider = "sqlite"
-// }
-
-datasource db {
-  provider = "postgresql"
-}
-
-// datasource db {
-//   provider = "postgresql"
-//   url      = env("DATABASE_URL")
-// }
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
 }
 
-// model User {
-//   id        Int      @id @default(autoincrement())
-//   email     String   @unique
-//   name      String?
-//   createdAt DateTime @default(now())
-// }
+datasource db {
+  provider = "postgresql"
+}
+
 enum UserRole {
   USER
-  AUTHOR
   ADMIN
 }
 
-enum BookStatus {
-  DRAFT
-  PUBLISHED
-  ARCHIVED
+enum UploadStatus {
+  UPLOADED
+  PARSING
+  PARSED
+  ANALYZING
+  ANALYZED
+  PDF_GENERATED
+  FAILED
 }
 
-enum BookVisibility {
-  PUBLIC
-  UNLISTED
-  PRIVATE
+enum AttributeDataType {
+  TEXT
+  NUMBER
+  DATE
+  BOOLEAN
+  CURRENCY
+  PERCENT
+  UNKNOWN
 }
 
-enum Monetization {
-  FREE
-  BUY_ONLY
-  RENT_ONLY
-  BUY_AND_RENT
-}
-
-enum OrderType {
-  BUY
-  RENT
-}
-
-enum OrderStatus {
+enum AiAnalysisStatus {
   PENDING
-  PAID
-  CANCELED
-  REFUNDED
-}
-
-enum AccessType {
-  FREE
-  PURCHASED
-  RENTED
+  RUNNING
+  SUCCESS
+  FAILED
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String?
-  name         String
-  role         UserRole @default(USER)
-  balanceCents Int      @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  saveCount    Int      @default(0)
-  avatar       String   @default("")
-
-  authorProfile   AuthorProfile?
-  authoredBooks   Book[]            @relation("AuthorBooks")
-  reviews         Review[]
-  orders          Order[]
-  accesses        BookAccess[]
-  readingProgress ReadingProgress[]
-  saves           Save[]
+  id                String               @id @default(cuid())
+  email             String               @unique
+  passwordHash      String?
+  name              String
+  fullName          String?
+  role              UserRole             @default(USER)
+  isActive          Boolean              @default(true)
+  avatar            String               @default("")
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  tokens            Token[]
+  uploads           UploadedFile[]
+  parsedSheets      ParsedSheet[]
+  extractedRows     ExtractedRow[]
+  attributes        FinancialAttribute[]
+  attributeVersions AttributeVersion[]
+  analyses          AiAnalysis[]
+  templates         ReportTemplate[]
+  reports           GeneratedReport[]
+  auditLogs         AuditLog[]
 
   @@index([role])
-}
-
-model Save {
-  id        String   @id @default(cuid())
-  userId    String
-  bookId    String
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, bookId])
-  @@index([bookId])
 }
 
 model Token {
   id        String   @id @default(cuid())
   userId    String   @unique
   token     String   @unique
-  createdAt DateTime @default(now())
   expiresAt DateTime
-}
-
-model AuthorProfile {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  penName   String?
-  bio       String?
-  avatarUrl String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([expiresAt])
 }
 
-model Book {
-  id               String         @id @default(cuid())
-  authorId         String
-  title            String
-  description      String?
-  coverUrl         String?
-  language         String?
-  category         String?
-  status           BookStatus     @default(DRAFT)
-  visibility       BookVisibility @default(PUBLIC)
-  monetization     Monetization   @default(FREE)
-  buyPriceCents    Int?
-  rentPriceCents   Int?
-  currency         String         @default("USD")
-  rentDurationDays Int?
-  publishedAt      DateTime?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+model UploadedFile {
+  id           String               @id @default(cuid())
+  userId       String
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  originalName String
+  storedName   String?
+  mimeType     String?
+  extension    String?
+  sizeBytes    Int
+  checksum     String?
+  status       UploadStatus         @default(UPLOADED)
+  errorMessage String?
+  rawFilePath  String?
+  rawFileData  Bytes?
+  uploadedAt   DateTime             @default(now())
+  parsedAt     DateTime?
+  analyzedAt   DateTime?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  sheets       ParsedSheet[]
+  rows         ExtractedRow[]
+  attributes   FinancialAttribute[]
+  versions     AttributeVersion[]   @relation("UploadAttributeVersions")
+  analyses     AiAnalysis[]
+  reports      GeneratedReport[]
 
-  author   User         @relation("AuthorBooks", fields: [authorId], references: [id], onDelete: Restrict)
-  chapters Chapter[]
-  tags     BookTag[]
-  reviews  Review[]
-  saves    Save[]
-  orders   Order[]
-  accesses BookAccess[]
-
-  @@index([authorId])
-  @@index([category])
+  @@index([userId, uploadedAt])
   @@index([status])
-  @@index([visibility])
-  @@index([monetization])
 }
 
-model Chapter {
-  id         String   @id @default(cuid())
-  bookId     String
-  title      String
-  order      Int
-  content    String?
-  contentUrl String?
-  isPreview  Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+model ParsedSheet {
+  id             String               @id @default(cuid())
+  userId         String
+  uploadId       String
+  user           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  upload         UploadedFile         @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  sheetName      String
+  detectedRange  String?
+  rowCount       Int                  @default(0)
+  columnCount    Int                  @default(0)
+  headerRowIndex Int?
+  headers        Json?
+  rawRows        Json?
+  normalizedRows Json?
+  createdAt      DateTime             @default(now())
+  rows           ExtractedRow[]
+  attributes     FinancialAttribute[]
 
-  book       Book              @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  progresses ReadingProgress[]
-
-  @@unique([bookId, order])
-  @@index([bookId])
+  @@index([userId, uploadId])
+  @@index([sheetName])
 }
 
-model Tag {
-  id    String    @id @default(cuid())
-  name  String    @unique
-  slug  String    @unique
-  books BookTag[]
+model ExtractedRow {
+  id              String               @id @default(cuid())
+  userId          String
+  uploadId        String
+  sheetId         String
+  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  upload          UploadedFile         @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  sheet           ParsedSheet          @relation(fields: [sheetId], references: [id], onDelete: Cascade)
+  rowIndex        Int
+  rowIdentityHash String
+  rawJson         Json
+  normalizedJson  Json?
+  detectedDate    DateTime?
+  detectedAmount  Decimal?             @db.Decimal(20, 4)
+  detectedType    String?
+  createdAt       DateTime             @default(now())
+  attributes      FinancialAttribute[]
+
+  @@index([userId, uploadId])
+  @@index([rowIdentityHash])
 }
 
-model BookTag {
-  bookId String
-  tagId  String
+model FinancialAttribute {
+  id                 String             @id @default(cuid())
+  userId             String
+  uploadId           String
+  sheetId            String?
+  rowId              String?
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  upload             UploadedFile       @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  sheet              ParsedSheet?       @relation(fields: [sheetId], references: [id], onDelete: SetNull)
+  row                ExtractedRow?      @relation(fields: [rowId], references: [id], onDelete: SetNull)
+  identityKey        String
+  attributeKey       String
+  label              String
+  dataType           AttributeDataType  @default(UNKNOWN)
+  sheetName          String?
+  rowIndex           Int?
+  columnIndex        Int?
+  periodDate         DateTime?
+  latestVersionId    String?
+  currentValueRaw    String?
+  currentValueText   String?
+  currentValueNumber Decimal?           @db.Decimal(20, 4)
+  currentValueDate   DateTime?
+  currentValueJson   Json?
+  rowIdentityHash    String?
+  attributeHash      String?
+  versionCount       Int                @default(0)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  versions           AttributeVersion[]
 
-  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
-
-  @@id([bookId, tagId])
-  @@index([tagId])
+  @@unique([userId, identityKey])
+  @@index([userId, attributeKey])
+  @@index([userId, uploadId])
+  @@index([rowIdentityHash])
 }
 
-model Review {
-  id        String   @id @default(cuid())
-  bookId    String
-  userId    String
-  rating    Int
-  title     String?
-  body      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model AttributeVersion {
+  id                String             @id @default(cuid())
+  userId            String
+  sourceUploadId    String
+  attributeId       String
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceUpload      UploadedFile       @relation("UploadAttributeVersions", fields: [sourceUploadId], references: [id], onDelete: Cascade)
+  attribute         FinancialAttribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  versionNo         Int
+  isLatest          Boolean            @default(true)
+  validFrom         DateTime           @default(now())
+  validTo           DateTime?
+  valueRaw          String?
+  valueText         String?
+  valueNumber       Decimal?           @db.Decimal(20, 4)
+  valueDate         DateTime?
+  valueJson         Json?
+  valueHash         String
+  periodDate        DateTime?
+  sourceSheetName   String?
+  sourceRowIndex    Int?
+  sourceColumnIndex Int?
+  createdAt         DateTime           @default(now())
 
-  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([attributeId, versionNo])
+  @@index([userId, sourceUploadId])
+  @@index([attributeId, isLatest])
+  @@index([valueHash])
+}
 
-  @@unique([bookId, userId])
-  @@index([bookId])
+model AiAnalysis {
+  id             String            @id @default(cuid())
+  userId         String
+  uploadId       String
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  upload         UploadedFile      @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  status         AiAnalysisStatus  @default(PENDING)
+  modelName      String
+  promptVersion  String            @default("v1")
+  inputSummary   Json?
+  requestPayload Json?
+  resultJson     Json?
+  resultText     String?
+  errorMessage   String?
+  tokenUsage     Json?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  reports        GeneratedReport[]
+
+  @@index([userId, uploadId])
+  @@index([status])
+}
+
+model ReportTemplate {
+  id           String            @id @default(cuid())
+  userId       String
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?
+  templateJson Json
+  htmlTemplate String?
+  isDefault    Boolean           @default(false)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  reports      GeneratedReport[]
+
   @@index([userId])
 }
 
-model Order {
-  id          String      @id @default(cuid())
+model GeneratedReport {
+  id          String          @id @default(uuid())
   userId      String
-  bookId      String
-  type        OrderType
-  status      OrderStatus @default(PENDING)
-  amountCents Int
-  currency    String      @default("USD")
-  provider    String?
-  providerRef String?
-  createdAt   DateTime    @default(now())
-  paidAt      DateTime?
+  uploadId    String?
+  analysisId  String?
+  templateId  String?
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  upload      UploadedFile?   @relation(fields: [uploadId], references: [id], onDelete: SetNull)
+  analysis    AiAnalysis?     @relation(fields: [analysisId], references: [id], onDelete: SetNull)
+  template    ReportTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  title       String
+  fileName    String
+  mimeType    String          @default("application/pdf")
+  sizeBytes   Int
+  pdfData     Bytes
+  reportJson  Json?
+  range       String?
+  generatedAt DateTime        @default(now())
+  createdAt   DateTime        @default(now())
 
-  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  book     Book         @relation(fields: [bookId], references: [id], onDelete: Restrict)
-  accesses BookAccess[]
-
-  @@index([userId])
-  @@index([bookId])
-  @@index([status])
+  @@index([userId, generatedAt])
+  @@index([uploadId])
+  @@index([analysisId])
 }
 
-model BookAccess {
-  id         String     @id @default(cuid())
-  userId     String
-  bookId     String
-  accessType AccessType
-  startAt    DateTime
-  endAt      DateTime?
-  orderId    String?
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String
+  entityType String?
+  entityId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
 
-  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  book  Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  order Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
-
-  @@unique([userId, bookId, accessType, startAt])
-  @@index([userId, bookId])
-  @@index([endAt])
-}
-
-model ReadingProgress {
-  id        String   @id @default(cuid())
-  userId    String
-  chapterId String
-  percent   Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, chapterId])
   @@index([userId])
-  @@index([chapterId])
+  @@index([action])
 }
