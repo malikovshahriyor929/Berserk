@@ -1,4 +1,5 @@
 import puppeteer from "puppeteer";
+// @ts-ignore
 import PDFDocument from "pdfkit";
 import chartService from "./charts/chart.service.js";
 import {
