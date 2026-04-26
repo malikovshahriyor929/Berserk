@@ -92,13 +92,17 @@ export function formatNumber(value: unknown) {
     return "N/A";
   }
 
-  const numeric = typeof value === "number" ? value : Number(String(value).replace(/,/g, ""));
+  const normalized = String(value)
+    .replace(/[^\d.-]/g, "") // Keep only digits, dot and minus
+    .replace(/^-?\./, (m) => (m.startsWith("-") ? "-0." : "0."));
+
+  const numeric = Number(normalized);
   if (!Number.isFinite(numeric)) {
     return String(value);
   }
 
   return new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: Number.isInteger(numeric) ? 0 : 2,
+    minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(numeric);
 }
@@ -173,9 +177,20 @@ export function normalizeSummary(text: unknown) {
 }
 
 function extractValue(record: PrimitiveRecord, keys: string[]) {
+  // First check exact matches
   for (const key of keys) {
     if (record[key] !== undefined && record[key] !== null && record[key] !== "") {
       return record[key];
+    }
+  }
+
+  // Then check case-insensitive matches
+  const recordKeys = Object.keys(record);
+  for (const searchKey of keys) {
+    const lowerSearch = searchKey.toLowerCase();
+    const foundKey = recordKeys.find((k) => k.toLowerCase() === lowerSearch);
+    if (foundKey && record[foundKey] !== undefined && record[foundKey] !== null && record[foundKey] !== "") {
+      return record[foundKey];
     }
   }
 
@@ -215,31 +230,31 @@ export function parseAnalysisResult(analysis: {
     .filter(Boolean);
 
   const parsed: ParsedReportAnalysis = {
-    reportType: formatReportType(extractValue(payload, ["reportType", "type"]) ?? "N/A"),
-    language: formatEnumLabel(extractValue(payload, ["language"]) ?? "N/A"),
+    reportType: formatReportType(extractValue(payload, ["reportType", "type"]) ?? (payload.status ? "Forecast" : "N/A")),
+    language: formatEnumLabel(extractValue(payload, ["language"]) ?? "Uzbek"),
     summary: normalizeSummary(extractValue(payload, ["summary", "executiveSummary"]) ?? analysis.resultText),
-    periodStart: formatDate(extractValue(payload, ["periodStart"]) ?? period.start),
-    periodEnd: formatDate(extractValue(payload, ["periodEnd"]) ?? period.end),
+    periodStart: formatDate(extractValue(payload, ["periodStart"]) ?? period.start ?? period.historicalStart),
+    periodEnd: formatDate(extractValue(payload, ["periodEnd"]) ?? period.end ?? period.forecastEnd),
     metrics: [
       {
-        label: "Income total",
-        value: formatCurrency(extractValue(metrics, ["incomeTotal"]) ?? extractValue(payload, ["incomeTotal"])),
+        label: "Jami daromad",
+        value: formatCurrency(extractValue(metrics, ["incomeTotal", "totalIncome", "income", "predictedIncomeTotal"]) ?? extractValue(payload, ["incomeTotal", "totalIncome"])),
       },
       {
-        label: "Expense total",
-        value: formatCurrency(extractValue(metrics, ["expenseTotal"]) ?? extractValue(payload, ["expenseTotal"])),
+        label: "Jami xarajat",
+        value: formatCurrency(extractValue(metrics, ["expenseTotal", "totalExpense", "expenses", "predictedExpenseTotal"]) ?? extractValue(payload, ["expenseTotal", "totalExpense"])),
       },
       {
-        label: "Net total",
-        value: formatCurrency(extractValue(metrics, ["netTotal"]) ?? extractValue(payload, ["netTotal"])),
+        label: "Sof foyda",
+        value: formatCurrency(extractValue(metrics, ["netTotal", "netIncome", "profit", "predictedNetTotal"]) ?? extractValue(payload, ["netTotal", "netIncome"])),
       },
       {
-        label: "Transaction count",
-        value: formatNumber(extractValue(metrics, ["transactionCount"]) ?? extractValue(payload, ["transactionCount"])),
+        label: "Tranzaksiyalar soni",
+        value: formatNumber(extractValue(metrics, ["transactionCount", "count", "historyCount"]) ?? extractValue(payload, ["transactionCount", "totalCount"])),
       },
       {
-        label: "Average transaction",
-        value: formatCurrency(extractValue(metrics, ["averageTransaction"]) ?? extractValue(payload, ["averageTransaction"])),
+        label: "O'rtacha tranzaksiya",
+        value: formatCurrency(extractValue(metrics, ["averageTransaction", "avgAmount", "predictedCashflow"]) ?? extractValue(payload, ["averageTransaction", "average"])),
       },
     ],
     categories,

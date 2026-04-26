@@ -92,31 +92,13 @@ class ReportsService {
       throw ApiError.badRequest("PDF report can only be generated for successful analyses");
     }
 
-    const existing = await prisma.generatedReport.findFirst({
+    // Delete existing reports for this analysis to force a clean slate with the new design
+    await prisma.generatedReport.deleteMany({
       where: {
         userId: params.userId,
         analysisId: params.analysisId,
       },
-      orderBy: {
-        generatedAt: "desc",
-      },
-      select: {
-        id: true,
-        title: true,
-        fileName: true,
-        mimeType: true,
-        sizeBytes: true,
-        uploadId: true,
-        analysisId: true,
-        templateId: true,
-        range: true,
-        generatedAt: true,
-      },
     });
-
-    if (existing) {
-      return this.toReportMetadata(existing);
-    }
 
     const template = params.templateId
       ? await reportTemplateService.getById(params.userId, params.templateId)

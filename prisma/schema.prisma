@@ -39,6 +39,54 @@ enum AiAnalysisStatus {
   FAILED
 }
 
+enum ForecastStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  INSUFFICIENT_DATA
+}
+
+enum ForecastHorizon {
+  NEXT_MONTH
+  NEXT_QUARTER
+  NEXT_YEAR
+  CUSTOM
+}
+
+enum ForecastPeriodUnit {
+  DAY
+  WEEK
+  MONTH
+  QUARTER
+  YEAR
+}
+
+enum ForecastScenario {
+  CONSERVATIVE
+  BASE
+  OPTIMISTIC
+}
+
+enum ForecastIssueType {
+  DATA_QUALITY
+  MISSING_VALUE
+  INVALID_DATE
+  INVALID_NUMBER
+  DUPLICATE_ROW
+  OUTLIER
+  TREND_BREAK
+  INSUFFICIENT_HISTORY
+  MODEL_WARNING
+  CRITICAL_ERROR
+}
+
+enum ForecastIssueSeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
 model User {
   id                String               @id @default(cuid())
   email             String               @unique
@@ -59,6 +107,7 @@ model User {
   analyses          AiAnalysis[]
   templates         ReportTemplate[]
   reports           GeneratedReport[]
+  forecasts         ForecastRun[]
   auditLogs         AuditLog[]
 
   @@index([role])
@@ -101,6 +150,7 @@ model UploadedFile {
   versions     AttributeVersion[]   @relation("UploadAttributeVersions")
   analyses     AiAnalysis[]
   reports      GeneratedReport[]
+  forecasts    ForecastRun[]
 
   @@index([userId, uploadedAt])
   @@index([status])
@@ -237,6 +287,7 @@ model AiAnalysis {
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
   reports        GeneratedReport[]
+  forecasts      ForecastRun[]
 
   @@index([userId, uploadId])
   @@index([status])
@@ -295,4 +346,89 @@ model AuditLog {
 
   @@index([userId])
   @@index([action])
+}
+
+model ForecastRun {
+  id              String          @id @default(uuid())
+  userId          String
+  uploadId        String
+  analysisId      String?
+
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  upload          UploadedFile    @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  analysis        AiAnalysis?     @relation(fields: [analysisId], references: [id], onDelete: SetNull)
+
+  status          ForecastStatus  @default(PENDING)
+  horizon         ForecastHorizon
+  customPeriods   Int?
+  periodUnit      ForecastPeriodUnit?
+  targetMetric    String?
+  scenario        ForecastScenario @default(BASE)
+
+  inputSummary    Json?
+  baselineJson    Json?
+  resultJson      Json?
+  resultText      String?
+  errorMessage    String?
+
+  modelName       String?
+  promptVersion   String          @default("forecast-v1")
+  tokenUsage      Json?
+
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  points          ForecastPoint[]
+  issues          ForecastIssue[]
+
+  @@index([userId, uploadId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model ForecastPoint {
+  id              String       @id @default(uuid())
+  forecastRunId   String
+  forecastRun     ForecastRun  @relation(fields: [forecastRunId], references: [id], onDelete: Cascade)
+
+  period          String
+  periodStart     DateTime?
+  periodEnd       DateTime?
+
+  metricKey       String
+  metricLabel     String?
+  predictedValue  Decimal?     @db.Decimal(20, 4)
+  lowerBound      Decimal?     @db.Decimal(20, 4)
+  upperBound      Decimal?     @db.Decimal(20, 4)
+  confidence      Decimal?     @db.Decimal(5, 2)
+
+  scenario        ForecastScenario @default(BASE)
+  explanation     String?
+
+  createdAt       DateTime     @default(now())
+
+  @@index([forecastRunId])
+  @@index([metricKey])
+  @@index([period])
+}
+
+model ForecastIssue {
+  id              String       @id @default(uuid())
+  forecastRunId   String
+  forecastRun     ForecastRun  @relation(fields: [forecastRunId], references: [id], onDelete: Cascade)
+
+  type            ForecastIssueType
+  severity        ForecastIssueSeverity
+  title           String
+  description     String
+  recommendation  String?
+  rowReference    String?
+  fieldReference  String?
+
+  createdAt       DateTime     @default(now())
+
+  @@index([forecastRunId])
+  @@index([severity])
 }

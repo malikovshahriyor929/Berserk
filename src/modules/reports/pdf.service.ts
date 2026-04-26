@@ -83,10 +83,10 @@ class PdfService {
     return new Promise<Buffer>((resolve, reject) => {
       const doc = new PDFDocument({
         size: "A4",
-        margin: 48,
+        margin: 50,
         info: {
           Title: input.title,
-          Author: input.user.fullName || input.user.name || input.user.email,
+          Author: "Berserk Financial Platform",
         },
       });
 
@@ -95,81 +95,120 @@ class PdfService {
       doc.on("end", () => resolve(Buffer.concat(chunks)));
       doc.on("error", reject);
 
-      const addLine = (label: string, value: string) => {
-        doc.font("Helvetica-Bold").text(`${label}: `, { continued: true });
-        doc.font("Helvetica").text(value);
+      // Helper for drawing a header line
+      const drawHorizontalLine = (y: number) => {
+        doc.moveTo(50, y).lineTo(545, y).lineWidth(0.5).strokeColor("#E5E7EB").stroke();
       };
 
-      const addSection = (title: string) => {
-        doc.moveDown();
-        doc.font("Helvetica-Bold").fontSize(14).fillColor("#112855").text(title);
+      // Header
+      doc.fillColor("#112855").fontSize(24).font("Helvetica-Bold").text("Berserk", { align: "left" });
+      doc.fillColor("#64748B").fontSize(10).font("Helvetica").text("Moliyaviy tahlil hisoboti", { align: "left" });
+      doc.moveDown(1.5);
+
+      const headerY = doc.y;
+      doc.fillColor("#111827").fontSize(18).font("Helvetica-Bold").text(input.title);
+      doc.fillColor("#4B5563").fontSize(12).font("Helvetica").text(input.upload.originalName);
+      doc.moveDown(0.5);
+      drawHorizontalLine(doc.y);
+      doc.moveDown(1);
+
+      // Meta info in two columns
+      const metaTop = doc.y;
+      const addMeta = (label: string, value: string, x: number) => {
+        doc.fillColor("#64748B").fontSize(9).font("Helvetica-Bold").text(label.toUpperCase(), x, doc.y);
+        doc.fillColor("#111827").fontSize(11).font("Helvetica").text(value, x);
+        doc.moveDown(0.5);
+      };
+
+      addMeta("Sana", formatDateTime(input.generatedAt), 50);
+      addMeta("Foydalanuvchi", input.user.fullName || input.user.name || input.user.email, 50);
+      
+      doc.y = metaTop;
+      addMeta("Hisobot turi", parsed.reportType, 300);
+      addMeta("Davr", `${parsed.periodStart} - ${parsed.periodEnd}`, 300);
+
+      doc.x = 50;
+      doc.moveDown(1);
+      drawHorizontalLine(doc.y);
+      doc.moveDown(1.5);
+
+      const addSection = (title: string, color = "#112855") => {
+        doc.moveDown(0.5);
+        doc.fillColor(color).fontSize(14).font("Helvetica-Bold").text(title);
         doc.moveDown(0.4);
-        doc.font("Helvetica").fontSize(10).fillColor("#111827");
+        doc.fillColor("#111827").fontSize(10).font("Helvetica");
       };
 
-      doc.font("Helvetica-Bold").fontSize(20).fillColor("#112855").text(input.title);
-      doc.moveDown(0.4);
-      doc.font("Helvetica").fontSize(11).fillColor("#374151").text(input.upload.originalName);
-      doc.moveDown();
+      // Try to load a unicode font if available on the system
+      const fontPaths = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/Library/Fonts/Arial.ttf",
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+      ];
+      
+      let fontLoaded = false;
+      for (const fp of fontPaths) {
+        try {
+          doc.font(fp);
+          fontLoaded = true;
+          break;
+        } catch {
+          // ignore
+        }
+      }
 
-      addLine("Generated", formatDateTime(input.generatedAt));
-      addLine("User", input.user.fullName || input.user.name || input.user.email);
-      addLine("Report type", parsed.reportType);
-      addLine("Language", parsed.language);
-      addLine("Period", `${parsed.periodStart} — ${parsed.periodEnd}`);
-      addLine("Uploaded", formatDate(input.upload.uploadedAt));
+      if (!fontLoaded) {
+        doc.font("Helvetica");
+      }
 
       addSection("Qisqacha xulosa");
       parsed.summary.forEach((item) => {
-        doc.text(`• ${item}`);
-        doc.moveDown(0.3);
+        doc.fillColor("#374151").text(`• ${item}`, { lineGap: 3 });
       });
 
       addSection("Asosiy ko'rsatkichlar");
-      parsed.metrics.forEach((metric) => {
-        addLine(metric.label, metric.value);
+      doc.moveDown(0.2);
+      
+      // Metrics Grid (2 columns)
+      const metricsTop = doc.y;
+      parsed.metrics.forEach((metric, index) => {
+        const xPos = index % 2 === 0 ? 50 : 300;
+        const yPos = metricsTop + Math.floor(index / 2) * 45;
+        
+        doc.rect(xPos, yPos, 230, 40).fill("#F9FAFB");
+        doc.fillColor("#64748B").fontSize(8).font("Helvetica-Bold").text(metric.label.toUpperCase(), xPos + 10, yPos + 8);
+        doc.fillColor("#112855").fontSize(12).font("Helvetica-Bold").text(metric.value, xPos + 10, yPos + 20);
       });
-
-      if (parsed.categories.length) {
-        addSection("Kategoriyalar");
-        parsed.categories.slice(0, 20).forEach((category) => {
-          doc.text(`• ${category.name} | ${category.type} | Count: ${category.count} | Total: ${category.total}`);
-        });
-      }
+      
+      doc.y = metricsTop + Math.ceil(parsed.metrics.length / 2) * 50 + 10;
+      doc.x = 50;
 
       if (parsed.anomalies.length) {
-        addSection("Anomaliyalar");
-        parsed.anomalies.slice(0, 20).forEach((anomaly) => {
-          doc.text(`• [${anomaly.severity}] ${anomaly.title} (${anomaly.rowReference})`);
-          doc.fillColor("#4B5563").text(anomaly.description, { indent: 12 });
-          doc.fillColor("#111827");
-        });
-      }
-
-      if (parsed.risks.length) {
-        addSection("Risklar");
-        parsed.risks.slice(0, 20).forEach((risk) => {
-          doc.text(`• ${risk.title}`);
-          doc.fillColor("#4B5563").text(risk.description, { indent: 12 });
-          doc.text(`Recommendation: ${risk.recommendation}`, { indent: 12 });
-          doc.fillColor("#111827");
+        addSection("Anomaliyalar", "#DC2626");
+        parsed.anomalies.slice(0, 5).forEach((anomaly) => {
+          doc.fillColor("#111827").font("Helvetica-Bold").text(`${anomaly.title}`);
+          doc.fillColor("#4B5563").font("Helvetica").fontSize(9).text(anomaly.description, { indent: 10 });
+          doc.moveDown(0.4);
         });
       }
 
       if (parsed.recommendations.length) {
-        addSection("Tavsiyalar");
-        parsed.recommendations.slice(0, 20).forEach((recommendation) => {
-          doc.text(`• ${recommendation}`);
+        addSection("Tavsiyalar", "#16A34A");
+        parsed.recommendations.slice(0, 10).forEach((rec) => {
+          doc.fillColor("#374151").text(`• ${rec}`, { indent: 10, lineGap: 2 });
         });
       }
 
-      if (input.attributes.length) {
-        addSection("Atributlar preview");
-        input.attributes.slice(0, 25).forEach((attribute) => {
-          doc.text(
-            `• ${attribute.label || attribute.attributeKey} | ${formatEnumLabel(attribute.dataType ?? "N/A")} | ${attribute.sheetName ?? "N/A"} | ${attributeCurrentValue(attribute)}`,
-          );
-        });
+      // Footer
+      const pages = doc.bufferedPageRange();
+      for (let i = 0; i < pages.count; i++) {
+        doc.switchToPage(i);
+        doc.fillColor("#9CA3AF").fontSize(8).text(
+          `Berserk Financial Platform | ${formatDateTime(input.generatedAt)} | Sahifa ${i + 1}`,
+          50,
+          doc.page.height - 40,
+          { align: "center" }
+        );
       }
 
       doc.end();
@@ -198,13 +237,6 @@ class PdfService {
       anomalies: parsed.anomalies,
       risks: parsed.risks,
       recommendations: parsed.recommendations,
-      attributesPreview: input.attributes.slice(0, 20).map((attribute) => ({
-        attribute: attribute.label || attribute.attributeKey,
-        currentValue: attributeCurrentValue(attribute),
-        type: formatEnumLabel(attribute.dataType ?? "N/A"),
-        sheet: attribute.sheetName ?? "N/A",
-        versionCount: formatNumber(attribute.versionCount ?? 0),
-      })),
       generatedAt: input.generatedAt,
       charts: {
         categoryChart,
@@ -216,12 +248,18 @@ class PdfService {
     try {
       const browser = await puppeteer.launch({
         headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+          "--disable-gpu",
+        ],
       });
 
       const page = await browser.newPage();
       await page.setContent(html, {
         waitUntil: "networkidle0",
+        timeout: 60000,
       });
 
       const pdf = await page.pdf({
@@ -238,8 +276,8 @@ class PdfService {
         footerTemplate: `
           <div style="width:100%; font-size:9px; color:#64748B; padding:0 12mm; font-family:Arial, Helvetica, sans-serif;">
             <div style="width:100%; display:flex; justify-content:space-between; align-items:center;">
-              <span>Moliyaviy hisobot</span>
-              <span><span class="pageNumber"></span> / <span class="totalPages"></span> · ${formatDateTime(input.generatedAt)}</span>
+              <span>Berserk Financial Platform</span>
+              <span>Sahifa <span class="pageNumber"></span> / <span class="totalPages"></span> · ${formatDateTime(input.generatedAt)}</span>
             </div>
           </div>
         `,

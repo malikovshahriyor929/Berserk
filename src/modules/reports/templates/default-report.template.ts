@@ -32,13 +32,6 @@ type TemplateInput = {
   anomalies: Array<{ title: string; description: string; severity: string; rowReference: string }>;
   risks: Array<{ title: string; description: string; recommendation: string }>;
   recommendations: string[];
-  attributesPreview: Array<{
-    attribute: string;
-    currentValue: string;
-    type: string;
-    sheet: string;
-    versionCount: string;
-  }>;
   generatedAt: Date;
   charts: {
     categoryChart: string | null;
@@ -232,49 +225,6 @@ function renderRecommendations(input: TemplateInput) {
   `;
 }
 
-function renderAttributesTable(input: TemplateInput) {
-  if (input.attributesPreview.length === 0) {
-    return `
-      <section class="section">
-        <h2>Parsed attributes summary</h2>
-        <p class="empty-state">Atributlar topilmadi.</p>
-      </section>
-    `;
-  }
-
-  return `
-    <section class="section">
-      <h2>Parsed attributes summary</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Attribute</th>
-            <th>Current value</th>
-            <th>Type</th>
-            <th>Sheet</th>
-            <th class="align-right">Version count</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${input.attributesPreview
-            .map(
-              (item) => `
-                <tr>
-                  <td>${escapeHtml(item.attribute)}</td>
-                  <td>${escapeHtml(item.currentValue)}</td>
-                  <td>${escapeHtml(item.type)}</td>
-                  <td>${escapeHtml(item.sheet)}</td>
-                  <td class="align-right">${escapeHtml(item.versionCount)}</td>
-                </tr>
-              `,
-            )
-            .join("")}
-        </tbody>
-      </table>
-      <p class="muted small-note">To‘liq atributlar ro‘yxati tizimda saqlangan.</p>
-    </section>
-  `;
-}
 
 export function renderReportHtml(input: TemplateInput) {
   const owner = input.user.fullName || input.user.name || input.user.email;
@@ -598,26 +548,26 @@ export function renderReportHtml(input: TemplateInput) {
         <main class="report">
           <section class="hero">
             <div>
-              <span class="eyebrow">AI generated report</span>
+              <span class="eyebrow">AI tomonidan yaratilgan hisobot</span>
               <h1>Moliyaviy hisobot</h1>
               <p class="subtitle">${escapeHtml(input.subtitle)}</p>
-              <p class="muted">AI tahlil asosida avtomatik yaratilgan hisobot</p>
+              <p class="muted">AI tahlil asosida avtomatik yaratilgan professional hisobot</p>
             </div>
             <div class="meta-grid">
               <div class="meta-item">
-                <div class="meta-label">Prepared for</div>
+                <div class="meta-label">Kim uchun</div>
                 <div class="meta-value">${escapeHtml(owner)}</div>
               </div>
               <div class="meta-item">
-                <div class="meta-label">Generated at</div>
+                <div class="meta-label">Yaratilgan vaqt</div>
                 <div class="meta-value">${escapeHtml(formatDateTime(input.generatedAt))}</div>
               </div>
               <div class="meta-item">
-                <div class="meta-label">Report type</div>
+                <div class="meta-label">Hisobot turi</div>
                 <div class="meta-value">${escapeHtml(input.reportType)}</div>
               </div>
               <div class="meta-item">
-                <div class="meta-label">Period</div>
+                <div class="meta-label">Davr</div>
                 <div class="meta-value">${escapeHtml(input.periodText)}</div>
               </div>
             </div>
@@ -633,7 +583,7 @@ export function renderReportHtml(input: TemplateInput) {
           ${renderMetricsGrid(input)}
 
           <section class="section">
-            <h2>Charts</h2>
+            <h2>Grafiklar</h2>
             ${
               input.charts.categoryChart || input.charts.metricsChart
                 ? `
@@ -642,7 +592,7 @@ export function renderReportHtml(input: TemplateInput) {
                       input.charts.categoryChart
                         ? `
                           <div class="chart-card avoid-break">
-                            <h3>Category breakdown</h3>
+                            <h3>Kategoriyalar bo‘yicha</h3>
                             <img src="${input.charts.categoryChart}" alt="Category breakdown chart" />
                           </div>
                         `
@@ -652,7 +602,7 @@ export function renderReportHtml(input: TemplateInput) {
                       input.charts.metricsChart
                         ? `
                           <div class="chart-card avoid-break">
-                            <h3>Financial overview</h3>
+                            <h3>Moliyaviy ko‘rsatkichlar</h3>
                             <img src="${input.charts.metricsChart}" alt="Financial overview chart" />
                           </div>
                         `
@@ -660,7 +610,7 @@ export function renderReportHtml(input: TemplateInput) {
                     }
                   </div>
                 `
-                : `<p class="empty-state">Chart uchun yetarli ma’lumot topilmadi.</p>`
+                : `<p class="empty-state">Grafiklar uchun yetarli ma’lumot topilmadi.</p>`
             }
           </section>
 
@@ -668,7 +618,6 @@ export function renderReportHtml(input: TemplateInput) {
           ${renderAnomalies(input)}
           ${renderRisks(input)}
           ${renderRecommendations(input)}
-          ${renderAttributesTable(input)}
         </main>
       </body>
     </html>

@@ -6,28 +6,37 @@ import { env } from "../../config/env.js";
 const SYSTEM_PROMPT = `
 You are a senior financial reporting analyst.
 
-Analyze the uploaded spreadsheet summary and return ONLY plain text.
+Analyze the uploaded spreadsheet summary and return ONLY a valid JSON object.
+Do not use markdown.
+Do not wrap JSON in triple backticks.
 
-Output rules:
-- Do not return JSON.
-- Do not return markdown lists, tables, or code blocks.
-- Do not use bullets or numbering.
-- Use only normal paragraphs and bold section titles in this exact style: **Section title**
-- Keep the answer human-readable and concise.
-- Do not include raw spreadsheet dumps.
-
-Required structure:
-**Qisqacha xulosa**
-Short executive summary in plain text.
-
-**Muhim topilmalar**
-Plain text paragraph covering major financial findings, periods, trends, and important context.
-
-**Risk va ogohlantirishlar**
-Plain text paragraph covering risks, anomalies, missing values, inconsistencies, or critical concerns.
-
-**Tavsiyalar**
-Plain text paragraph with actionable management recommendations.
+Expected JSON shape:
+{
+  "reportType": "bank_statement | income_statement | financial_summary | unknown",
+  "language": "uz",
+  "summary": ["Paragraph 1", "Paragraph 2"],
+  "period": {
+    "start": "YYYY-MM-DD | null",
+    "end": "YYYY-MM-DD | null"
+  },
+  "metrics": {
+    "incomeTotal": number | null,
+    "expenseTotal": number | null,
+    "netTotal": number | null,
+    "transactionCount": number | null,
+    "averageTransaction": number | null
+  },
+  "categories": [
+    { "name": "string", "type": "income|expense", "count": number, "total": number }
+  ],
+  "anomalies": [
+    { "title": "string", "description": "string", "severity": "low|medium|high", "rowReference": "string" }
+  ],
+  "risks": [
+    { "title": "string", "description": "string", "recommendation": "string" }
+  ],
+  "recommendations": ["string"]
+}
 `.trim();
 
 function extractResponseText(response: unknown) {
@@ -37,6 +46,15 @@ function extractResponseText(response: unknown) {
   );
 
   return texts.join("\n").trim();
+}
+
+function parseJsonSafely(text: string): unknown | null {
+  try {
+    const cleaned = text.trim().replace(/^```json/i, "").replace(/```$/i, "").trim();
+    return JSON.parse(cleaned);
+  } catch {
+    return null;
+  }
 }
 
 class GeminiService {
@@ -135,9 +153,9 @@ class GeminiService {
         parts: [{ text: SYSTEM_PROMPT }],
       },
       generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 4096,
-        responseMimeType: "text/plain",
+        temperature: 0.1,
+        maxOutputTokens: 8192,
+        responseMimeType: "application/json",
       },
     });
 
@@ -147,7 +165,7 @@ class GeminiService {
           role: "user",
           parts: [
             {
-              text: `Please analyze this spreadsheet summary and answer using only plain text paragraphs with bold section titles.\n\nSpreadsheet summary:\n${JSON.stringify(summary, null, 2)}`,
+              text: `Analyze this spreadsheet summary and return the results as JSON. Use Uzbek for text fields.\n\nSpreadsheet summary:\n${JSON.stringify(summary, null, 2)}`,
             },
           ],
         },
@@ -157,11 +175,12 @@ class GeminiService {
     const result = await generativeModel.generateContent(requestPayload);
     const response = result.response;
     const responseText = extractResponseText(response);
+    const responseJson = parseJsonSafely(responseText);
 
     return {
       requestPayload,
       responseText,
-      responseJson: null,
+      responseJson,
       tokenUsage: (response as { usageMetadata?: unknown })?.usageMetadata ?? null,
     };
   }

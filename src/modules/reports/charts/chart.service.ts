@@ -74,7 +74,7 @@ class ChartService {
 
   async generateMetricsChart(metrics: ReportMetric[]) {
     const selected = metrics
-      .filter((item) => ["Income total", "Expense total", "Net total"].includes(item.label))
+      .filter((item) => ["Jami daromad", "Jami xarajat", "Sof foyda"].includes(item.label))
       .map((item) => ({
         label: item.label,
         value: Number(String(item.value).replace(/[^0-9.-]/g, "")) || 0,

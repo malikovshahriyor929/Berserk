@@ -8,6 +8,7 @@ import authRoutes from "./modules/auth/auth.routes.js";
 import filesRoutes from "./modules/files/files.routes.js";
 import attributesRoutes from "./modules/attributes/attributes.routes.js";
 import aiRoutes from "./modules/ai/ai.routes.js";
+import forecastRoutes from "./modules/forecasts/forecasts.routes.js";
 import dashboardRoutes from "./modules/dashboard/dashboard.routes.js";
 import reportTemplateRoutes from "./modules/report-templates/report-template.routes.js";
 import reportsRoutes from "./modules/reports/reports.routes.js";
@@ -15,7 +16,10 @@ import { errorMiddleware } from "./middleware/error.middleware.js";
 
 const app = express();
 
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginOpenerPolicy: { policy: "unsafe-none" },
+}));
 app.use(rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 300,
@@ -25,14 +29,22 @@ app.use(rateLimit({
 
 app.use(
   cors({
-    origin(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-      if (!origin || env.corsOrigins.length === 0 || env.corsOrigins.includes(origin)) {
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin) return callback(null, true);
+      
+      if (env.isProduction && env.corsOrigins.length > 0) {
+        if (env.corsOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          callback(new Error("CORS blocked"));
+        }
+      } else {
+        // In development, allow all
         callback(null, true);
-        return;
       }
-
-      callback(new Error("CORS blocked"));
     },
+    credentials: true,
   }),
 );
 
@@ -49,6 +61,7 @@ app.use("/auth", authRoutes);
 app.use("/api/files", filesRoutes);
 app.use("/api/attributes", attributesRoutes);
 app.use("/api/analyses", aiRoutes);
+app.use("/api/forecasts", forecastRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/report-templates", reportTemplateRoutes);
 app.use("/api/reports", reportsRoutes);
